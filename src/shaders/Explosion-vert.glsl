@@ -142,12 +142,20 @@ void main()
                                                             // model matrix. This is necessary to ensure the normals remain
                                                             // perpendicular to the surface after the surface is transformed by
                                                             // the model matrix.
-    float d = fbm(vs_Pos.xyz * 100.0);
+    float d = fbm(vs_Pos.xyz * 5.0 + u_Time * 2.0) * 0.4 + 1.0;
+
+    float heightTaper = 5.0;
+    float inverseHeightTerm = pow((heightTaper / (vs_Pos.y + 6.0)), 4.0);
+    // vs_Pos.y ranges from -infinity to infinity
+    // we want range from 0.0 to 1.0 based on y height blended in
+    float HeightTerm = max(vs_Pos.y, 0.5) / 2.0;
+
+    d *= pow(HeightTerm, 0.9);
     
     vec4 newPos = vec4(
-        vs_Pos.x * mix(1.0, 1.1, sin(vs_Pos.y * 10.0 - u_Time * 10.0)) * d, 
-        vs_Pos.y, 
-        vs_Pos.z * mix(1.0, 1.1, sin(vs_Pos.y * 10.0 - u_Time * 10.0)) * d, 
+        vs_Pos.x * (sin(((pow(d, 2.5) * 2.0) + 1.0)) + 1.0) / 0.5,// * inverseHeightTerm,// * (vs_Pos.x * mix(1.0, 1.1, sin(vs_Pos.y * 10.0 - (-u_Time - (d * 0.5)) * 10.0) * 0.4) * d), 
+        vs_Pos.y + (pow(d, 4.0) * 7.0), 
+        vs_Pos.z * (sin(((pow(d, 2.5) * 2.0) + 1.0)) + 1.0) / 0.5,// * inverseHeightTerm,// * (vs_Pos.z * mix(1.0, 1.1, sin(vs_Pos.y * 10.0 - (-u_Time - (d * 0.5)) * 10.0) * 0.4) * d), 
         1.0
     );
 
