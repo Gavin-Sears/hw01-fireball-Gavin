@@ -13,7 +13,6 @@ import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
   tesselations: 5,
-  Color: '#ffffff',
   'Load Scene': loadScene, // A function pointer, essentially
 };
 
@@ -21,7 +20,6 @@ let icosphere: Icosphere;
 let square: Square;
 let cube: Cube;
 let prevTesselations: number = 5;
-let prevColor: vec4 = vec4.fromValues(1, 0, 0, 1);
 let startTime = performance.now();
 
 function hextoVec4(hexVal: string): vec4 {
@@ -57,7 +55,6 @@ function main() {
   const gui = new DAT.GUI();
   gui.add(controls, 'tesselations', 0, 8).step(1);
   gui.add(controls, 'Load Scene');
-  gui.addColor(controls, 'Color');
 
   // get canvas and webgl context
   const canvas = <HTMLCanvasElement> document.getElementById('canvas');
@@ -102,9 +99,7 @@ function main() {
       icosphere.create();
     }
 
-    let sliderColor: vec4 = hextoVec4(controls.Color);
-
-    renderer.render(camera, Explosion, sliderColor, (performance.now() - startTime) / 1000.0, [
+    renderer.render(camera, Explosion, (performance.now() - startTime) / 1000.0, [
       icosphere
       //cube
       // square,
