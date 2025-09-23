@@ -1,4 +1,16 @@
-# [Project 1: Noise](https://github.com/CIS-566-Fall-2022/hw01-fireball-base)
+# [Project 1: Fireball](https://github.com/CIS-566-Fall-2022/hw01-fireball-base)
+
+## Submission
+
+<img width="1171" height="918" alt="fireball-website" src="https://github.com/user-attachments/assets/f0e4eb34-0e48-4a58-96ef-9e08f961d327" />
+
+Includes:
+- slider for 'energy' (switches color palettes)
+- slider for 'life' (changes flame height)
+- slider for 'vitality' (faster and more movement in flame)
+- default controls and reset button
+
+[link to site](https://gavin-sears.github.io/hw01-fireball-Gavin/)
 
 ## Objective
 
@@ -64,10 +76,3 @@ Choose one of the following options:
 - Custom mesh (easy): Figure out how to import a custom mesh rather than using an icosahedron for a fancy-shaped cloud.
 - Mouse interactivity (medium): Find out how to get the current mouse position in your scene and use it to deform your cloud, such that users can deform the cloud with their cursor.
 - Music (hard): Figure out a way to use music to drive your noise animation in some way, such that your noise cloud appears to dance.
-
-## Submission
-
-- Update README.md to contain a solid description of your project
-- Publish your project to gh-pages. `npm run deploy`. It should now be visible at http://username.github.io/repo-name
-- Create a [pull request](https://help.github.com/articles/creating-a-pull-request/) to this repository, and in the comment, include a link to your published project.
-- Submit the link to your pull request on Canvas.
