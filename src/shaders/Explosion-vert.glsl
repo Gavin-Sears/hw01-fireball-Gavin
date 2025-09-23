@@ -9,6 +9,12 @@ uniform mat4 u_ViewProj;
 
 uniform float u_Time;       // time since start (seconds)
 
+uniform float u_Energy;
+
+uniform float u_Life;
+
+uniform float u_Vitality;
+
 in vec4 vs_Pos;
 in vec4 vs_Nor;
 in vec4 vs_Col;
@@ -101,19 +107,29 @@ float sinZeroToOne(in float theta)
     return (sin(theta) + 1.0) / 2.0;
 }
 
+
+// cosine based palette, 4 vec3 params
+// taken from Inigo Quilez: https://iquilezles.org/articles/palettes/
+vec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d )
+{
+    return a + b*cos( 6.283185*(c*t+d) );
+}
+
 void main()
 {
     fs_Pos = vs_Pos;
+
+    float vitalitime = u_Time * u_Vitality;
 
     mat3 invTranspose = mat3(u_ModelInvTr);
     fs_Nor = vec4(invTranspose * vec3(vs_Nor), 0);
 
     // Start of fireball displacement
     // fractal brownian motion
-    float d = fbm(vs_Pos.xyz * vec3(3.0, -5.0, 3.0) + u_Time * 2.0);
+    float d = fbm(vs_Pos.xyz * vec3(3.0, -5.0, 3.0) + vitalitime * 2.0);
     
     // gets more intense the higher we go
-    float HeightTerm = (vs_Pos.y + 1.0) * 0.35 * max(sinZeroToOne((vs_Pos.y * 10.0) - (u_Time * 4.0)), 0.94);
+    float HeightTerm = (vs_Pos.y + 1.0) * 0.35 * max(sinZeroToOne((vs_Pos.y * 10.0) - (vitalitime * 4.0)), 0.94);
 
     // term that controls surface noise
     float noiseTerm = (d * 0.4) + 1.0;
@@ -121,24 +137,25 @@ void main()
 
     // sending color corresponding to displacement,
     // mixes between dark bluish magenta, red, and yellow
-    fs_Col = mix(
-        vec4(0.1, 0.0, 0.2, 1.0), 
-        mix(
-            vec4(1.0, 0.2, 0.1, 1.0), 
-            vec4(1.0, 1.0, 0.0, 1.0),
-            pow(HeightTerm + (d * 0.4), 2.5)
-        ),
-        pow(HeightTerm + (d * 0.4), 1.5)
+    fs_Col = vec4(
+        palette(
+            pow(HeightTerm + (d * 0.4),1.5) / 2.0 + (u_Energy * 0.75) + 0.65,
+            vec3(0.5, 0.5, 0.5),
+            vec3(0.5, 0.5, 0.5),
+            vec3(1.0, 1.0, 1.0),
+            vec3(0.0, 0.33, 0.67)
+        ), 
+        1.0
     );
     
-    float pulse = (sin(pow(HeightTerm, 2.0) * 10.0 - u_Time * 5.0) * 0.7 * pow(HeightTerm, 2.0) + 1.0);
-    float flicker = (sin(pow(HeightTerm, 5.0) * 50.0 - u_Time * 17.0) * 0.1 * pow(HeightTerm, 2.0) + 1.0);
+    float pulse = (sin(pow(HeightTerm, 2.0) * u_Vitality * 10.0 - vitalitime * 5.0) * 0.7 * pow(HeightTerm, 2.0) + 1.0);
+    float flicker = (sin(pow(HeightTerm, 5.0) * u_Vitality * 50.0 - vitalitime * 17.0) * 0.1 * pow(HeightTerm, 2.0) + 1.0);
 
     // applying displacement
     vec4 newPos = vec4(
         vs_Pos.x * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker,
-        vs_Pos.y + (pow(noiseTerm, 4.0) * 7.0) * 1.1, 
-        vs_Pos.z * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker + sin(u_Time * 1.5) * 0.3,
+        vs_Pos.y + (pow(noiseTerm, 4.0) * 7.0) * u_Life, 
+        vs_Pos.z * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker + sin(vitalitime * 1.5) * 0.3,
         1.0
     );
 

@@ -30,6 +30,9 @@ class ShaderProgram {
   unifViewProj: WebGLUniformLocation;
   unifColor: WebGLUniformLocation;
   unifTime: WebGLUniformLocation;
+  unifEnergy: WebGLUniformLocation;
+  unifLife: WebGLUniformLocation;
+  unifVitality: WebGLUniformLocation;
 
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
@@ -42,14 +45,17 @@ class ShaderProgram {
       throw gl.getProgramInfoLog(this.prog);
     }
 
-    this.attrPos = gl.getAttribLocation(this.prog, "vs_Pos");
-    this.attrNor = gl.getAttribLocation(this.prog, "vs_Nor");
-    this.attrCol = gl.getAttribLocation(this.prog, "vs_Col");
+    this.attrPos        = gl.getAttribLocation(this.prog, "vs_Pos");
+    this.attrNor        = gl.getAttribLocation(this.prog, "vs_Nor");
+    this.attrCol        = gl.getAttribLocation(this.prog, "vs_Col");
     this.unifModel      = gl.getUniformLocation(this.prog, "u_Model");
     this.unifModelInvTr = gl.getUniformLocation(this.prog, "u_ModelInvTr");
     this.unifViewProj   = gl.getUniformLocation(this.prog, "u_ViewProj");
     this.unifColor      = gl.getUniformLocation(this.prog, "u_Color");
     this.unifTime       = gl.getUniformLocation(this.prog, "u_Time");
+    this.unifEnergy     = gl.getUniformLocation(this.prog, "u_Energy");
+    this.unifLife       = gl.getUniformLocation(this.prog, "u_Life");
+    this.unifVitality   = gl.getUniformLocation(this.prog, "u_Vitality");
   }
 
   use() {
@@ -91,6 +97,27 @@ class ShaderProgram {
     this.use();
     if (this.unifTime !== -1) {
       gl.uniform1f(this.unifTime, time)
+    }
+  }
+
+  setEnergy(energy: number) {
+    this.use();
+    if (this.unifEnergy !== -1) {
+      gl.uniform1f(this.unifEnergy, energy)
+    }
+  }
+
+  setLife(life: number) {
+    this.use();
+    if (this.unifLife !== -1) {
+      gl.uniform1f(this.unifLife, life)
+    }
+  }
+
+  setVitality(vitality: number) {
+    this.use();
+    if (this.unifVitality !== -1) {
+      gl.uniform1f(this.unifVitality, vitality)
     }
   }
 

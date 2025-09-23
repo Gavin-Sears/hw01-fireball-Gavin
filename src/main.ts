@@ -1,4 +1,4 @@
-import {vec3, vec4} from 'gl-matrix';
+import {vec3, vec4, mat4} from 'gl-matrix';
 const Stats = require('stats-js');
 import * as DAT from 'dat.gui';
 import Icosphere from './geometry/Icosphere';
@@ -12,8 +12,12 @@ import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
-  tesselations: 5,
   'Load Scene': loadScene, // A function pointer, essentially
+  'Reset': setDefaultValues, 
+  tesselations: 5,
+  'energy': 0.1,
+  'life': 1.1,
+  'vitality': 1.0
 };
 
 let icosphere: Icosphere;
@@ -21,6 +25,11 @@ let square: Square;
 let cube: Cube;
 let prevTesselations: number = 5;
 let startTime = performance.now();
+let gui = new DAT.GUI();
+let canvas = <HTMLCanvasElement> document.getElementById('canvas');
+let renderer = new OpenGLRenderer(canvas);
+let gl = <WebGL2RenderingContext> canvas.getContext('webgl2');
+let camera = new Camera(vec3.fromValues(0, 0, 5), vec3.fromValues(0, 0, 0));
 
 function hextoVec4(hexVal: string): vec4 {
   let truncColor: string = hexVal.slice(1);
@@ -42,6 +51,43 @@ function loadScene() {
   //cube.create();
 }
 
+function setDefaultValues() {
+  controls.tesselations = 5;
+  controls['energy'] = 0.5;
+  controls['life'] = 1.1;
+  controls['vitality'] = 1.0;
+  for (const contr of gui.__controllers) {
+    contr.updateDisplay();
+  }
+}
+
+function handleMouseEvent(event: any) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left; // Mouse X relative to canvas
+    const y = event.clientY - rect.top;  // Mouse Y relative to canvas
+
+    console.log(raycast(x, y))
+}
+
+function raycast(x: number, y: number): vec4 {
+  const rect = canvas.getBoundingClientRect();
+  const xVal = (x / rect.width) * 2.0 - 1.0;
+  const yVal = (y / rect.height) * 2.0 + 1.0;
+  const zVal = camera.far - camera.near; 
+
+  const screenVec = vec4.fromValues(xVal, yVal, zVal, 0.0);
+  const screenVecNorm = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
+  vec4.normalize(screenVecNorm, screenVec);
+
+  const inverseViewProj = mat4.create();
+  mat4.invert(inverseViewProj, camera.projectionMatrix);
+
+  const worldRay = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
+  mat4.multiply(worldRay, inverseViewProj, screenVecNorm)
+
+  return worldRay;
+}
+
 function main() {
   // Initial display for framerate
   const stats = Stats();
@@ -51,14 +97,17 @@ function main() {
   stats.domElement.style.top = '0px';
   document.body.appendChild(stats.domElement);
 
-  // Add controls to the gui
-  const gui = new DAT.GUI();
-  gui.add(controls, 'tesselations', 0, 8).step(1);
-  gui.add(controls, 'Load Scene');
+  canvas.addEventListener('mousemove', handleMouseEvent);
 
-  // get canvas and webgl context
-  const canvas = <HTMLCanvasElement> document.getElementById('canvas');
-  const gl = <WebGL2RenderingContext> canvas.getContext('webgl2');
+  // Add controls to the gui
+  //const gui = new DAT.GUI();
+  gui.add(controls, 'Load Scene');
+  gui.add(controls, 'Reset');
+  gui.add(controls, 'tesselations', 0, 8).step(1);
+  gui.add(controls, 'energy', 0.0, 1.0);
+  gui.add(controls, 'life', 0.1, 10.0);
+  gui.add(controls, 'vitality', 0.0, 10.0);
+
   if (!gl) {
     alert('WebGL 2 not supported!');
   }
@@ -69,9 +118,6 @@ function main() {
   // Initial call to load scene
   loadScene();
 
-  const camera = new Camera(vec3.fromValues(0, 0, 5), vec3.fromValues(0, 0, 0));
-
-  const renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(0.2, 0.2, 0.2, 1);
   gl.enable(gl.DEPTH_TEST);
 
@@ -99,11 +145,19 @@ function main() {
       icosphere.create();
     }
 
-    renderer.render(camera, Explosion, (performance.now() - startTime) / 1000.0, [
+    renderer.render(
+      camera, 
+      Explosion, 
+      (performance.now() - startTime) / 1000.0, 
+      controls['energy'],
+      controls['life'],
+      controls['vitality'],
+      [
       icosphere
       //cube
       // square,
-    ]);
+      ]
+    );
     stats.end();
 
     // Tell the browser to call `tick` again whenever it renders a new frame
