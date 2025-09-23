@@ -9,6 +9,7 @@ Includes:
 - slider for 'life' (changes flame height)
 - slider for 'vitality' (faster and more movement in flame)
 - default controls and reset button
+- ability to move fireball with mouse
 
 [link to site](https://gavin-sears.github.io/hw01-fireball-Gavin/)
 
