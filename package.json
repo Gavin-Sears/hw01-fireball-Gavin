@@ -1,11 +1,14 @@
 {
   "scripts": {
-    "start": "webpack-dev-server --no-hot --live-reload",
-    "build": "webpack"
+    "start": "set NODE_OPTIONS=--openssl-legacy-provider && webpack-dev-server --no-hot --live-reload",
+    "build": "set NODE_OPTIONS=--openssl-legacy-provider && webpack",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@types/dat.gui": "^0.7.7",
     "@types/webgl2": "0.0.6",
+    "gh-pages": "^6.3.0",
     "ts-loader": "^9.2.5",
     "typescript": "^4.4.2",
     "webpack": "^5.52.0",
