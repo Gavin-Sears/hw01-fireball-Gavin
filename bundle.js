@@ -10606,7 +10606,7 @@ class OpenGLRenderer {
     clear() {
         _globals__WEBPACK_IMPORTED_MODULE_2__.gl.clear(_globals__WEBPACK_IMPORTED_MODULE_2__.gl.COLOR_BUFFER_BIT | _globals__WEBPACK_IMPORTED_MODULE_2__.gl.DEPTH_BUFFER_BIT);
     }
-    render(camera, prog, time, energy, life, vitality, drawables) {
+    render(camera, prog, time, energy, life, vitality, worldRay, drawables) {
         let model = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
         let viewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
         let color = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0.0, 0.0, 0.0, 1.0);
@@ -10619,6 +10619,7 @@ class OpenGLRenderer {
         prog.setEnergy(energy);
         prog.setLife(life);
         prog.setVitality(vitality);
+        prog.setWorldRay(worldRay);
         for (let drawable of drawables) {
             prog.draw(drawable);
         }
@@ -10679,6 +10680,7 @@ class ShaderProgram {
         this.unifEnergy = _globals__WEBPACK_IMPORTED_MODULE_1__.gl.getUniformLocation(this.prog, "u_Energy");
         this.unifLife = _globals__WEBPACK_IMPORTED_MODULE_1__.gl.getUniformLocation(this.prog, "u_Life");
         this.unifVitality = _globals__WEBPACK_IMPORTED_MODULE_1__.gl.getUniformLocation(this.prog, "u_Vitality");
+        this.unifWorldRay = _globals__WEBPACK_IMPORTED_MODULE_1__.gl.getUniformLocation(this.prog, "u_WorldRay");
     }
     use() {
         if (activeProgram !== this.prog) {
@@ -10734,6 +10736,12 @@ class ShaderProgram {
             _globals__WEBPACK_IMPORTED_MODULE_1__.gl.uniform1f(this.unifVitality, vitality);
         }
     }
+    setWorldRay(worldRay) {
+        this.use();
+        if (this.unifWorldRay !== -1) {
+            _globals__WEBPACK_IMPORTED_MODULE_1__.gl.uniform4fv(this.unifWorldRay, worldRay);
+        }
+    }
     draw(d) {
         this.use();
         if (this.attrPos != -1 && d.bindPos()) {
@@ -10774,7 +10782,7 @@ module.exports = "#version 300 es\r\n\r\nprecision highp float;\r\n\r\nuniform v
   \*****************************************/
 /***/ ((module) => {
 
-module.exports = "#version 300 es\r\n\r\n\r\nuniform mat4 u_Model;\r\n\r\nuniform mat4 u_ModelInvTr;\r\n\r\nuniform mat4 u_ViewProj;\r\n\r\nuniform float u_Time;       // time since start (seconds)\r\n\r\nuniform float u_Energy;\r\n\r\nuniform float u_Life;\r\n\r\nuniform float u_Vitality;\r\n\r\nin vec4 vs_Pos;\r\nin vec4 vs_Nor;\r\nin vec4 vs_Col;\r\n\r\nout vec4 fs_Nor;\r\nout vec4 fs_Col;\r\nout vec4 fs_Pos;\r\n\r\nfloat random (in vec3 _st) {\r\n    return fract(sin(dot(_st.xyz,\r\n                         vec3(12.9898,78.233,53.026)))*\r\n        43758.5453123);\r\n}\r\n\r\n// This noise function is featured\r\n// in the book of shaders section on Fractal Brownian Motion,\r\n// but from shadertoy (https://www.shadertoy.com/view/4dS3Wd)\r\n// I am going to add explanations for future use/tweaking, and\r\n// modify this for 3D noise\r\nfloat noise (in vec3 _st) {\r\n\r\n    // Creating grid from points (similar to voronoi setup)\r\n    vec3 i = floor(_st);\r\n    // also getting fractional component for interpolation\r\n    vec3 fc = fract(_st);\r\n\r\n    float a = random(i);\r\n    float b = random(i + vec3(1.0, 0.0, 0.0));\r\n    float c = random(i + vec3(1.0, 1.0, 0.0));\r\n    float d = random(i + vec3(0.0, 1.0, 0.0));\r\n    float e = random(i + vec3(1.0, 1.0, 1.0));\r\n    float f = random(i + vec3(1.0, 0.0, 1.0));\r\n    float g = random(i + vec3(0.0, 1.0, 1.0));\r\n    float h = random(i + vec3(0.0, 0.0, 1.0));\r\n\r\n    // These are interpolation terms for smoothing\r\n    // ( discussed 9/8/2025 in class)\r\n    vec3 u = fc * fc * (3.0 - 2.0 * fc);\r\n\r\n    // 3D interpolation using the smoothed factor from before.\r\n    // This can probably be vastly simplified similar to the 2D\r\n    // version of the function\r\n\r\n    return mix(\r\n        mix(\r\n            mix(a, b, u.x),     // segment 1\r\n            mix(d, c, u.x),     // segment 2\r\n            u.y\r\n        ),                      // plane 1 (bottom)\r\n        mix(\r\n            mix(h, f, u.x),     // segment 3\r\n            mix(g, e, u.x),     // segment 4\r\n            u.y\r\n        ),                      // plane 2\r\n        u.z\r\n    );\r\n}\r\n\r\n#define NUM_OCTAVES 5\r\n\r\n// This is also from book of shaders,\r\n// and is the FBM implementation.\r\n// I changed it so that it works in three\r\n// dimensions, but the 2D one is here: https://thebookofshaders.com/13/\r\nfloat fbm ( in vec3 _st) {\r\n    float v = 0.0;                      // final output\r\n    float a = 0.5;                      // amplitude of wave\r\n    vec3 shift = vec3(100.0);           // offset for wave\r\n\r\n    mat3 rot = mat3(\r\n        1., 0., 0.,\r\n        0., cos(0.5), sin(0.5),\r\n        0., -sin(0.5), cos(0.50)\r\n    );\r\n\r\n    for (int i = 0; i < NUM_OCTAVES; ++i) {\r\n        v += a * noise(_st);\r\n\r\n        // \"2.0\" is the lacunarity, or the factor by which frequency is multiplied each octave\r\n        _st = rot * _st * 2.0 + shift; \r\n\r\n        // Gain (factor by which amplitude is multiplied each octave)\r\n        a *= 0.5;\r\n    }\r\n    return v;\r\n}\r\n\r\nfloat sinZeroToOne(in float theta)\r\n{\r\n    return (sin(theta) + 1.0) / 2.0;\r\n}\r\n\r\n\r\n// cosine based palette, 4 vec3 params\r\n// taken from Inigo Quilez: https://iquilezles.org/articles/palettes/\r\nvec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d )\r\n{\r\n    return a + b*cos( 6.283185*(c*t+d) );\r\n}\r\n\r\nvoid main()\r\n{\r\n    fs_Pos = vs_Pos;\r\n\r\n    float vitalitime = u_Time * u_Vitality;\r\n\r\n    mat3 invTranspose = mat3(u_ModelInvTr);\r\n    fs_Nor = vec4(invTranspose * vec3(vs_Nor), 0);\r\n\r\n    // Start of fireball displacement\r\n    // fractal brownian motion\r\n    float d = fbm(vs_Pos.xyz * vec3(3.0, -5.0, 3.0) + vitalitime * 2.0);\r\n    \r\n    // gets more intense the higher we go\r\n    float HeightTerm = (vs_Pos.y + 1.0) * 0.35 * max(sinZeroToOne((vs_Pos.y * 10.0) - (vitalitime * 4.0)), 0.94);\r\n\r\n    // term that controls surface noise\r\n    float noiseTerm = (d * 0.4) + 1.0;\r\n    noiseTerm *= HeightTerm;\r\n\r\n    // sending color corresponding to displacement,\r\n    // mixes between dark bluish magenta, red, and yellow\r\n    fs_Col = vec4(\r\n        palette(\r\n            pow(HeightTerm + (d * 0.4),1.5) / 2.0 + (u_Energy * 0.75) + 0.65,\r\n            vec3(0.5, 0.5, 0.5),\r\n            vec3(0.5, 0.5, 0.5),\r\n            vec3(1.0, 1.0, 1.0),\r\n            vec3(0.0, 0.33, 0.67)\r\n        ), \r\n        1.0\r\n    );\r\n    \r\n    float pulse = (sin(pow(HeightTerm, 2.0) * u_Vitality * 10.0 - vitalitime * 5.0) * 0.7 * pow(HeightTerm, 2.0) + 1.0);\r\n    float flicker = (sin(pow(HeightTerm, 5.0) * u_Vitality * 50.0 - vitalitime * 17.0) * 0.1 * pow(HeightTerm, 2.0) + 1.0);\r\n\r\n    // applying displacement\r\n    vec4 newPos = vec4(\r\n        vs_Pos.x * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker,\r\n        vs_Pos.y + (pow(noiseTerm, 4.0) * 7.0) * u_Life, \r\n        vs_Pos.z * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker + sin(vitalitime * 1.5) * 0.3,\r\n        1.0\r\n    );\r\n\r\n    vec4 modelposition = u_Model * newPos;\r\n    gl_Position = u_ViewProj * modelposition;\r\n}\r\n"
+module.exports = "#version 300 es\r\n\r\n\r\nuniform mat4 u_Model;\r\n\r\nuniform mat4 u_ModelInvTr;\r\n\r\nuniform mat4 u_ViewProj;\r\n\r\nuniform float u_Time;       // time since start (seconds)\r\n\r\nuniform float u_Energy;\r\n\r\nuniform float u_Life;\r\n\r\nuniform float u_Vitality;\r\n\r\nuniform vec4 u_WorldRay;\r\n\r\nin vec4 vs_Pos;\r\nin vec4 vs_Nor;\r\nin vec4 vs_Col;\r\n\r\nout vec4 fs_Nor;\r\nout vec4 fs_Col;\r\nout vec4 fs_Pos;\r\n\r\nfloat random (in vec3 _st) {\r\n    return fract(sin(dot(_st.xyz,\r\n                         vec3(12.9898,78.233,53.026)))*\r\n        43758.5453123);\r\n}\r\n\r\n// This noise function is featured\r\n// in the book of shaders section on Fractal Brownian Motion,\r\n// but from shadertoy (https://www.shadertoy.com/view/4dS3Wd)\r\n// I am going to add explanations for future use/tweaking, and\r\n// modify this for 3D noise\r\nfloat noise (in vec3 _st) {\r\n\r\n    // Creating grid from points (similar to voronoi setup)\r\n    vec3 i = floor(_st);\r\n    // also getting fractional component for interpolation\r\n    vec3 fc = fract(_st);\r\n\r\n    float a = random(i);\r\n    float b = random(i + vec3(1.0, 0.0, 0.0));\r\n    float c = random(i + vec3(1.0, 1.0, 0.0));\r\n    float d = random(i + vec3(0.0, 1.0, 0.0));\r\n    float e = random(i + vec3(1.0, 1.0, 1.0));\r\n    float f = random(i + vec3(1.0, 0.0, 1.0));\r\n    float g = random(i + vec3(0.0, 1.0, 1.0));\r\n    float h = random(i + vec3(0.0, 0.0, 1.0));\r\n\r\n    // These are interpolation terms for smoothing\r\n    // ( discussed 9/8/2025 in class)\r\n    vec3 u = fc * fc * (3.0 - 2.0 * fc);\r\n\r\n    // 3D interpolation using the smoothed factor from before.\r\n    // This can probably be vastly simplified similar to the 2D\r\n    // version of the function\r\n\r\n    return mix(\r\n        mix(\r\n            mix(a, b, u.x),     // segment 1\r\n            mix(d, c, u.x),     // segment 2\r\n            u.y\r\n        ),                      // plane 1 (bottom)\r\n        mix(\r\n            mix(h, f, u.x),     // segment 3\r\n            mix(g, e, u.x),     // segment 4\r\n            u.y\r\n        ),                      // plane 2\r\n        u.z\r\n    );\r\n}\r\n\r\n#define NUM_OCTAVES 5\r\n\r\n// This is also from book of shaders,\r\n// and is the FBM implementation.\r\n// I changed it so that it works in three\r\n// dimensions, but the 2D one is here: https://thebookofshaders.com/13/\r\nfloat fbm ( in vec3 _st) {\r\n    float v = 0.0;                      // final output\r\n    float a = 0.5;                      // amplitude of wave\r\n    vec3 shift = vec3(100.0);           // offset for wave\r\n\r\n    mat3 rot = mat3(\r\n        1., 0., 0.,\r\n        0., cos(0.5), sin(0.5),\r\n        0., -sin(0.5), cos(0.50)\r\n    );\r\n\r\n    for (int i = 0; i < NUM_OCTAVES; ++i) {\r\n        v += a * noise(_st);\r\n\r\n        // \"2.0\" is the lacunarity, or the factor by which frequency is multiplied each octave\r\n        _st = rot * _st * 2.0 + shift; \r\n\r\n        // Gain (factor by which amplitude is multiplied each octave)\r\n        a *= 0.5;\r\n    }\r\n    return v;\r\n}\r\n\r\nfloat sinZeroToOne(in float theta)\r\n{\r\n    return (sin(theta) + 1.0) / 2.0;\r\n}\r\n\r\n\r\n// cosine based palette, 4 vec3 params\r\n// taken from Inigo Quilez: https://iquilezles.org/articles/palettes/\r\nvec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d )\r\n{\r\n    return a + b*cos( 6.283185*(c*t+d) );\r\n}\r\n\r\nvoid main()\r\n{\r\n    fs_Pos = vs_Pos;\r\n\r\n    float vitalitime = u_Time * u_Vitality;\r\n\r\n    mat3 invTranspose = mat3(u_ModelInvTr);\r\n    fs_Nor = vec4(invTranspose * vec3(vs_Nor), 0);\r\n\r\n    // Start of fireball displacement\r\n    // fractal brownian motion\r\n    float d = fbm(vs_Pos.xyz * vec3(3.0, -5.0, 3.0) + vitalitime * 2.0);\r\n    \r\n    // gets more intense the higher we go\r\n    float HeightTerm = (vs_Pos.y + 1.0) * 0.35 * max(sinZeroToOne((vs_Pos.y * 10.0) - (vitalitime * 4.0)), 0.94);\r\n\r\n    // term that controls surface noise\r\n    float noiseTerm = (d * 0.4) + 1.0;\r\n    noiseTerm *= HeightTerm;\r\n\r\n    // sending color corresponding to displacement,\r\n    // mixes between dark bluish magenta, red, and yellow\r\n    fs_Col = vec4(\r\n        palette(\r\n            pow(HeightTerm + (d * 0.4),1.5) / 2.0 + (u_Energy * 0.75) + 0.65,\r\n            vec3(0.5, 0.5, 0.5),\r\n            vec3(0.5, 0.5, 0.5),\r\n            vec3(1.0, 1.0, 1.0),\r\n            vec3(0.0, 0.33, 0.67)\r\n        ), \r\n        1.0\r\n    );\r\n    \r\n    float pulse = (sin(pow(HeightTerm, 2.0) * u_Vitality * 10.0 - vitalitime * 5.0) * 0.7 * pow(HeightTerm, 2.0) + 1.0);\r\n    float flicker = (sin(pow(HeightTerm, 5.0) * u_Vitality * 50.0 - vitalitime * 17.0) * 0.1 * pow(HeightTerm, 2.0) + 1.0);\r\n\r\n    // applying displacement\r\n    vec4 newPos = vec4(\r\n        vs_Pos.x * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker,\r\n        vs_Pos.y + (pow(noiseTerm, 4.0) * 7.0) * u_Life, \r\n        vs_Pos.z * ((noiseTerm * 0.9) + 1.0) * 0.9 * pulse * flicker + sin(vitalitime * 1.5) * 0.3,\r\n        1.0\r\n    );\r\n\r\n    vec4 modelposition = u_Model * newPos;\r\n    gl_Position = u_ViewProj * modelposition + u_WorldRay;\r\n}\r\n"
 
 /***/ }),
 
@@ -10874,15 +10882,14 @@ var __webpack_exports__ = {};
   !*** ./src/main.ts ***!
   \*********************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
-/* harmony import */ var dat_gui__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! dat.gui */ "./node_modules/dat.gui/build/dat.gui.module.js");
-/* harmony import */ var _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./geometry/Icosphere */ "./src/geometry/Icosphere.ts");
-/* harmony import */ var _rendering_gl_OpenGLRenderer__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./rendering/gl/OpenGLRenderer */ "./src/rendering/gl/OpenGLRenderer.ts");
-/* harmony import */ var _Camera__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./Camera */ "./src/Camera.ts");
-/* harmony import */ var _globals__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./globals */ "./src/globals.ts");
-/* harmony import */ var _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./rendering/gl/ShaderProgram */ "./src/rendering/gl/ShaderProgram.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
+/* harmony import */ var dat_gui__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! dat.gui */ "./node_modules/dat.gui/build/dat.gui.module.js");
+/* harmony import */ var _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./geometry/Icosphere */ "./src/geometry/Icosphere.ts");
+/* harmony import */ var _rendering_gl_OpenGLRenderer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./rendering/gl/OpenGLRenderer */ "./src/rendering/gl/OpenGLRenderer.ts");
+/* harmony import */ var _Camera__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./Camera */ "./src/Camera.ts");
+/* harmony import */ var _globals__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./globals */ "./src/globals.ts");
+/* harmony import */ var _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./rendering/gl/ShaderProgram */ "./src/rendering/gl/ShaderProgram.ts");
 
 const Stats = __webpack_require__(/*! stats-js */ "./node_modules/stats-js/build/stats.min.js");
 
@@ -10906,21 +10913,22 @@ let square;
 let cube;
 let prevTesselations = 5;
 let startTime = performance.now();
-let gui = new dat_gui__WEBPACK_IMPORTED_MODULE_3__.GUI();
+let gui = new dat_gui__WEBPACK_IMPORTED_MODULE_2__.GUI();
 let canvas = document.getElementById('canvas');
-let renderer = new _rendering_gl_OpenGLRenderer__WEBPACK_IMPORTED_MODULE_5__["default"](canvas);
+let renderer = new _rendering_gl_OpenGLRenderer__WEBPACK_IMPORTED_MODULE_4__["default"](canvas);
 let gl = canvas.getContext('webgl2');
-let camera = new _Camera__WEBPACK_IMPORTED_MODULE_6__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, 5), gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, 0));
+let camera = new _Camera__WEBPACK_IMPORTED_MODULE_5__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 5), gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0));
+let mouseRay = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0.0, 0.0, 0.0, 0.0);
 function hextoVec4(hexVal) {
     let truncColor = hexVal.slice(1);
     let r = parseInt((truncColor.charAt(0) + truncColor.charAt(1)), 16) / 255.0;
     let g = parseInt((truncColor.charAt(2)) + truncColor.charAt(3), 16) / 255.0;
     let b = parseInt((truncColor.charAt(4) + truncColor.charAt(5)), 16) / 255.0;
-    let col = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(r, g, b, 1);
+    let col = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(r, g, b, 1);
     return col;
 }
 function loadScene() {
-    icosphere = new _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_4__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, 0), 1, controls.tesselations);
+    icosphere = new _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_3__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0), 1, controls.tesselations);
     icosphere.create();
     //square = new Square(vec3.fromValues(0, 0, 0));
     //square.create();
@@ -10940,21 +10948,9 @@ function handleMouseEvent(event) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left; // Mouse X relative to canvas
     const y = event.clientY - rect.top; // Mouse Y relative to canvas
-    console.log(raycast(x, y));
-}
-function raycast(x, y) {
-    const rect = canvas.getBoundingClientRect();
     const xVal = (x / rect.width) * 2.0 - 1.0;
     const yVal = (y / rect.height) * 2.0 + 1.0;
-    const zVal = camera.far - camera.near;
-    const screenVec = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(xVal, yVal, zVal, 0.0);
-    const screenVecNorm = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0.0, 0.0, 0.0, 0.0);
-    gl_matrix__WEBPACK_IMPORTED_MODULE_2__.normalize(screenVecNorm, screenVec);
-    const inverseViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
-    gl_matrix__WEBPACK_IMPORTED_MODULE_0__.invert(inverseViewProj, camera.projectionMatrix);
-    const worldRay = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0.0, 0.0, 0.0, 0.0);
-    gl_matrix__WEBPACK_IMPORTED_MODULE_0__.multiply(worldRay, inverseViewProj, screenVecNorm);
-    return worldRay;
+    mouseRay = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(xVal * 2.0, -yVal * 2.0, 0.0, 0.0);
 }
 function main() {
     // Initial display for framerate
@@ -10978,18 +10974,18 @@ function main() {
     }
     // `setGL` is a function imported above which sets the value of `gl` in the `globals.ts` module.
     // Later, we can import `gl` from `globals.ts` to access it
-    (0,_globals__WEBPACK_IMPORTED_MODULE_7__.setGL)(gl);
+    (0,_globals__WEBPACK_IMPORTED_MODULE_6__.setGL)(gl);
     // Initial call to load scene
     loadScene();
     renderer.setClearColor(0.2, 0.2, 0.2, 1);
     gl.enable(gl.DEPTH_TEST);
-    const lambert = new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__["default"]([
-        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__.Shader(gl.VERTEX_SHADER, __webpack_require__(/*! ./shaders/lambert-vert.glsl */ "./src/shaders/lambert-vert.glsl")),
-        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__.Shader(gl.FRAGMENT_SHADER, __webpack_require__(/*! ./shaders/lambert-frag.glsl */ "./src/shaders/lambert-frag.glsl")),
+    const lambert = new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__["default"]([
+        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__.Shader(gl.VERTEX_SHADER, __webpack_require__(/*! ./shaders/lambert-vert.glsl */ "./src/shaders/lambert-vert.glsl")),
+        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__.Shader(gl.FRAGMENT_SHADER, __webpack_require__(/*! ./shaders/lambert-frag.glsl */ "./src/shaders/lambert-frag.glsl")),
     ]);
-    const Explosion = new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__["default"]([
-        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__.Shader(gl.VERTEX_SHADER, __webpack_require__(/*! ./shaders/Explosion-vert.glsl */ "./src/shaders/Explosion-vert.glsl")),
-        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_8__.Shader(gl.FRAGMENT_SHADER, __webpack_require__(/*! ./shaders/Explosion-frag.glsl */ "./src/shaders/Explosion-frag.glsl"))
+    const Explosion = new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__["default"]([
+        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__.Shader(gl.VERTEX_SHADER, __webpack_require__(/*! ./shaders/Explosion-vert.glsl */ "./src/shaders/Explosion-vert.glsl")),
+        new _rendering_gl_ShaderProgram__WEBPACK_IMPORTED_MODULE_7__.Shader(gl.FRAGMENT_SHADER, __webpack_require__(/*! ./shaders/Explosion-frag.glsl */ "./src/shaders/Explosion-frag.glsl"))
     ]);
     // This function will be called every frame
     function tick() {
@@ -10999,10 +10995,10 @@ function main() {
         renderer.clear();
         if (controls.tesselations != prevTesselations) {
             prevTesselations = controls.tesselations;
-            icosphere = new _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_4__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, 0), 1, prevTesselations);
+            icosphere = new _geometry_Icosphere__WEBPACK_IMPORTED_MODULE_3__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0), 1, prevTesselations);
             icosphere.create();
         }
-        renderer.render(camera, Explosion, (performance.now() - startTime) / 1000.0, controls['energy'], controls['life'], controls['vitality'], [
+        renderer.render(camera, Explosion, (performance.now() - startTime) / 1000.0, controls['energy'], controls['life'], controls['vitality'], mouseRay, [
             icosphere
             //cube
             // square,
