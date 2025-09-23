@@ -33,6 +33,7 @@ class ShaderProgram {
   unifEnergy: WebGLUniformLocation;
   unifLife: WebGLUniformLocation;
   unifVitality: WebGLUniformLocation;
+  unifWorldRay: WebGLUniformLocation;
 
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
@@ -56,6 +57,7 @@ class ShaderProgram {
     this.unifEnergy     = gl.getUniformLocation(this.prog, "u_Energy");
     this.unifLife       = gl.getUniformLocation(this.prog, "u_Life");
     this.unifVitality   = gl.getUniformLocation(this.prog, "u_Vitality");
+    this.unifWorldRay   = gl.getUniformLocation(this.prog, "u_WorldRay");
   }
 
   use() {
@@ -118,6 +120,13 @@ class ShaderProgram {
     this.use();
     if (this.unifVitality !== -1) {
       gl.uniform1f(this.unifVitality, vitality)
+    }
+  }
+
+  setWorldRay(worldRay: vec4) {
+    this.use();
+    if (this.unifWorldRay !== -1) {
+      gl.uniform4fv(this.unifWorldRay, worldRay)
     }
   }
 

@@ -30,6 +30,7 @@ let canvas = <HTMLCanvasElement> document.getElementById('canvas');
 let renderer = new OpenGLRenderer(canvas);
 let gl = <WebGL2RenderingContext> canvas.getContext('webgl2');
 let camera = new Camera(vec3.fromValues(0, 0, 5), vec3.fromValues(0, 0, 0));
+let mouseRay = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
 
 function hextoVec4(hexVal: string): vec4 {
   let truncColor: string = hexVal.slice(1);
@@ -65,27 +66,11 @@ function handleMouseEvent(event: any) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left; // Mouse X relative to canvas
     const y = event.clientY - rect.top;  // Mouse Y relative to canvas
+    
+    const xVal = (x / rect.width) * 2.0 - 1.0;
+    const yVal = (y / rect.height) * 2.0 + 1.0;
 
-    console.log(raycast(x, y))
-}
-
-function raycast(x: number, y: number): vec4 {
-  const rect = canvas.getBoundingClientRect();
-  const xVal = (x / rect.width) * 2.0 - 1.0;
-  const yVal = (y / rect.height) * 2.0 + 1.0;
-  const zVal = camera.far - camera.near; 
-
-  const screenVec = vec4.fromValues(xVal, yVal, zVal, 0.0);
-  const screenVecNorm = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
-  vec4.normalize(screenVecNorm, screenVec);
-
-  const inverseViewProj = mat4.create();
-  mat4.invert(inverseViewProj, camera.projectionMatrix);
-
-  const worldRay = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
-  mat4.multiply(worldRay, inverseViewProj, screenVecNorm)
-
-  return worldRay;
+    mouseRay = vec4.fromValues(xVal * 2.0, -yVal * 2.0, 0.0, 0.0);
 }
 
 function main() {
@@ -152,6 +137,7 @@ function main() {
       controls['energy'],
       controls['life'],
       controls['vitality'],
+      mouseRay,
       [
       icosphere
       //cube

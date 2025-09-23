@@ -22,7 +22,7 @@ class OpenGLRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
 
-  render(camera: Camera, prog: ShaderProgram, time: number, energy: number, life: number, vitality: number, drawables: Array<Drawable>) {
+  render(camera: Camera, prog: ShaderProgram, time: number, energy: number, life: number, vitality: number, worldRay: vec4, drawables: Array<Drawable>) {
     let model = mat4.create();
     let viewProj = mat4.create();
     let color = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
@@ -36,6 +36,7 @@ class OpenGLRenderer {
     prog.setEnergy(energy);
     prog.setLife(life);
     prog.setVitality(vitality);
+    prog.setWorldRay(worldRay);
 
     for (let drawable of drawables) {
       prog.draw(drawable);

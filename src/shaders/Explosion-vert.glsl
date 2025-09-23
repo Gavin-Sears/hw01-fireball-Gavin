@@ -15,6 +15,8 @@ uniform float u_Life;
 
 uniform float u_Vitality;
 
+uniform vec4 u_WorldRay;
+
 in vec4 vs_Pos;
 in vec4 vs_Nor;
 in vec4 vs_Col;
@@ -160,5 +162,5 @@ void main()
     );
 
     vec4 modelposition = u_Model * newPos;
-    gl_Position = u_ViewProj * modelposition;
+    gl_Position = u_ViewProj * modelposition + u_WorldRay;
 }
